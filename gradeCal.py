@@ -2,19 +2,23 @@ from bs4 import BeautifulSoup
 import pyperclip
 import numpy as np
 from datetime import datetime
+from prettytable import PrettyTable
 
 debug_mode = False
 
 decimals = 1
 bar_length = 50
 
+
 def cal_GPA(grads, ects, low_grade=2, high_grade=12):
     total_ects = np.sum(ects)
     prodoct_score = np.sum(grads * ects)
-    return (prodoct_score/total_ects-low_grade)/(high_grade-low_grade)*10+2
+    return (prodoct_score / total_ects - low_grade) / (high_grade - low_grade) * 10 + 2
+
 
 def devide_bachelor_master():
     pass
+
 
 def number_grade_test(grade):
     number_grade = False
@@ -25,6 +29,9 @@ def number_grade_test(grade):
     else:
         number_grade = True
     return number_grade
+
+def dtimearr_to_str(ar, format="%d-%m-%Y"):
+    return [d.strftime(format) for d in ar]
 
 bachelor = []
 master = []
@@ -45,8 +52,10 @@ if sdu_mode.lower() == "y":
 
     if debug_mode:
         bch_date = datetime.strptime("25-06-2019", "%d-%m-%Y")  #
+
     else:
-        bch_fomat = input("Enter a day there is between the last bachelor grade and (before) the first master grade (dd-mm-yyyy): ")
+        bch_fomat = input(
+            "Enter a day there is between the last bachelor grade and (before) the first master grade (dd-mm-yyyy): ")
         bch_date = datetime.strptime(bch_fomat, "%d-%m-%Y")
 
     for tr in table.find_all("tr")[1:]:
@@ -72,7 +81,9 @@ if sdu_mode.lower() == "y":
 else:
     for level, arr in zip(["bachelor", "master"], [bachelor, master]):
         while True:
-            temp = input("{}: Input a course (or 'x' for end of {} courcses). Enter 'ECTS,grade', grade can be numeric or B for pass: ".format(level.title(), level))
+            temp = input(
+                "{}: Input a course (or 'x' for end of {} courcses). Enter 'ECTS,grade', grade can be numeric or B for pass: ".format(
+                    level.title(), level))
             if temp == "x":
                 break
 
@@ -85,7 +96,6 @@ else:
                 grade = int(grade)
 
             arr.append([None, None, None, None, grade, None, ects, number_grade])
-
 
 bachelor = np.array(bachelor)
 master = np.array(master)
@@ -102,19 +112,19 @@ def print_part_info(part_name, part_data):
 
     print("Number of courses:", len(grades))
 
-
     print("ECTS sum:", np.round(np.sum(ects), decimals=decimals))
 
     number_grads_idxs = np.where(number_grade == 1)[0]
     passed_npassed_idx = np.delete(np.arange(len(number_grade)), number_grads_idxs)
     print("Grade stats (mean +- stddev / min / max): {:0.2f} +- {:0.2f} / {:0.2f} / {:0.2f}".format(
-                                                                                np.mean(grades[number_grads_idxs]),
-                                                                                np.std(grades[number_grads_idxs]),
-                                                                                np.min(grades[number_grads_idxs]),
-                                                                                np.max(grades[number_grads_idxs])))
+        np.mean(grades[number_grads_idxs]),
+        np.std(grades[number_grads_idxs]),
+        np.min(grades[number_grads_idxs]),
+        np.max(grades[number_grads_idxs])))
     print("Number/passed grade ECTS: {:0.1f}/{:0.1f}".format(np.sum(ects[number_grads_idxs]),
-                                                                    np.sum(ects[passed_npassed_idx])))
-    print("Percentage of passed/not passed courses (based on ECTS): {:0.2f}%".format(np.sum(ects[passed_npassed_idx])/np.sum(ects)*100))
+                                                             np.sum(ects[passed_npassed_idx])))
+    print("Percentage of passed/not passed courses (based on ECTS): {:0.2f}%".format(
+        np.sum(ects[passed_npassed_idx]) / np.sum(ects) * 100))
 
     number_dict = dict(np.array(np.unique(grades[number_grads_idxs], return_counts=True)).T)
     letter_dict = dict(np.array(np.unique(grades[passed_npassed_idx], return_counts=True)).T)
@@ -122,6 +132,26 @@ def print_part_info(part_name, part_data):
 
     m_gpa = cal_GPA(grades[number_grads_idxs], ects[number_grads_idxs])
     print("GPA:", np.round(m_gpa, decimals=decimals))
+
+    table = PrettyTable()
+
+    sort_idxs = np.argsort(judgeds)
+
+    codes = np.array(codes)[sort_idxs]
+    names = np.array(names)[sort_idxs]
+    judgeds = np.array(judgeds)[sort_idxs]
+    judgeds_str = dtimearr_to_str(judgeds)
+    registereds = np.array(registereds)[sort_idxs]
+    registereds_str = dtimearr_to_str(registereds)
+    grades = np.array(grades)[sort_idxs]
+    letter_grades = np.array(letter_grades)[sort_idxs]
+    ects = np.array(ects)[sort_idxs]
+
+    field_names = ["Code", "Name of Course", "Graded", "Released", "Grade", "ECTS-Gr.", "ECTS"]
+    for i, d in enumerate([codes, names, judgeds_str, registereds_str, grades, letter_grades, ects]):
+
+        table.add_column(field_names[i], d)
+    print(table)
     print("")
 
 

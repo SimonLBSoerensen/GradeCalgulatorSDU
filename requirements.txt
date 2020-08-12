@@ -1,4 +1,5 @@
 BeautifulSoup4
 numpy
 pyperclip
+PrettyTable
 #auto-py-to-exe
