@@ -3,6 +3,7 @@ import pyperclip
 import numpy as np
 from datetime import datetime
 from prettytable import PrettyTable
+import uuid
 
 debug_mode = False
 
@@ -14,10 +15,6 @@ def cal_GPA(grads, ects, low_grade=2, high_grade=12):
     total_ects = np.sum(ects)
     prodoct_score = np.sum(grads * ects)
     return (prodoct_score / total_ects - low_grade) / (high_grade - low_grade) * 10 + 2
-
-
-def devide_bachelor_master():
-    pass
 
 
 def number_grade_test(grade):
@@ -33,12 +30,25 @@ def number_grade_test(grade):
 def dtimearr_to_str(ar, format="%d-%m-%Y"):
     return [d.strftime(format) for d in ar]
 
+file_name = "grades" + ".txt"
+def file_writer(*args):
+    with open(file_name, "a") as f:
+        for arg in args:
+            f.write(str(arg))
+        f.write("\n")
+
+
 bachelor = []
 master = []
 
-sdu_mode = input("Are you from SDU? (y/n): ")
+sdu_mode = input("Are you from SDU? (y/n): ").lower() == "y"
+file_on = input("Write result to file? (y/r/n) (r for y+random filename): ").lower()
+if file_on == "r":
+    file_name = str(uuid.uuid4()) + ".txt"
+    file_on = "y"
+file_on = file_on == "y"
 
-if sdu_mode.lower() == "y":
+if sdu_mode:
     if debug_mode:
         with open("example.html") as f:
             html = f.read()
@@ -101,37 +111,37 @@ bachelor = np.array(bachelor)
 master = np.array(master)
 
 
-def print_part_info(part_name, part_data):
+def print_part_info(part_name, part_data, receiver_function=print):
     bar_padding = bar_length - len(part_name)
-    print(part_name + "-" * bar_padding)
+    receiver_function(part_name + "-" * bar_padding)
 
     if len(part_data) == 0:
         return
 
     codes, names, judgeds, registereds, grades, letter_grades, ects, number_grade = part_data.T
 
-    print("Number of courses:", len(grades))
+    receiver_function("Number of courses:", len(grades))
 
-    print("ECTS sum:", np.round(np.sum(ects), decimals=decimals))
+    receiver_function("ECTS sum:", np.round(np.sum(ects), decimals=decimals))
 
     number_grads_idxs = np.where(number_grade == 1)[0]
     passed_npassed_idx = np.delete(np.arange(len(number_grade)), number_grads_idxs)
-    print("Grade stats (mean +- stddev / min / max): {:0.2f} +- {:0.2f} / {:0.2f} / {:0.2f}".format(
+    receiver_function("Grade stats (mean +- stddev / min / max): {:0.2f} +- {:0.2f} / {:0.2f} / {:0.2f}".format(
         np.mean(grades[number_grads_idxs]),
         np.std(grades[number_grads_idxs]),
         np.min(grades[number_grads_idxs]),
         np.max(grades[number_grads_idxs])))
-    print("Number/passed grade ECTS: {:0.1f}/{:0.1f}".format(np.sum(ects[number_grads_idxs]),
-                                                             np.sum(ects[passed_npassed_idx])))
-    print("Percentage of passed/not passed courses (based on ECTS): {:0.2f}%".format(
+    receiver_function("Number/passed grade ECTS: {:0.1f}/{:0.1f}".format(np.sum(ects[number_grads_idxs]),
+                                                                         np.sum(ects[passed_npassed_idx])))
+    receiver_function("Percentage of passed/not passed courses (based on ECTS): {:0.2f}%".format(
         np.sum(ects[passed_npassed_idx]) / np.sum(ects) * 100))
 
     number_dict = dict(np.array(np.unique(grades[number_grads_idxs], return_counts=True)).T)
     letter_dict = dict(np.array(np.unique(grades[passed_npassed_idx], return_counts=True)).T)
-    print("Grads counts:", {**letter_dict, **number_dict})
+    receiver_function("Grads counts:", {**letter_dict, **number_dict})
 
     m_gpa = cal_GPA(grades[number_grads_idxs], ects[number_grads_idxs])
-    print("GPA:", np.round(m_gpa, decimals=decimals))
+    receiver_function("GPA:", np.round(m_gpa, decimals=decimals))
 
     table = PrettyTable()
 
@@ -151,11 +161,16 @@ def print_part_info(part_name, part_data):
     for i, d in enumerate([codes, names, judgeds_str, registereds_str, grades, letter_grades, ects]):
 
         table.add_column(field_names[i], d)
-    print(table)
-    print("")
+    receiver_function(table)
+    receiver_function("")
 
 
 print_part_info("Bachelor", bachelor)
 print_part_info("Master", master)
 print_part_info("Overall", np.array(list(bachelor) + list(master)))
+
+if file_on:
+    print_part_info("Bachelor", bachelor, file_writer)
+    print_part_info("Master", master, file_writer)
+    print_part_info("Overall", np.array(list(bachelor) + list(master)), file_writer)
 input("Exit...")
