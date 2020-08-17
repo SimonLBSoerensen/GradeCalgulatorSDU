@@ -27,19 +27,30 @@ def number_grade_test(grade):
         number_grade = True
     return number_grade
 
+
 def dtimearr_to_str(ar, format="%d-%m-%Y"):
     return [d.strftime(format) for d in ar]
 
+
 file_name = "grades" + ".txt"
+
+
 def file_writer(*args):
-    with open(file_name, "a") as f:
+    file_mode = "a"
+    if file_writer.create_file:
+        file_mode = "w"
+        file_writer.create_file = False
+
+    with open(file_name, file_mode) as f:
         for arg in args:
             f.write(str(arg))
         f.write("\n")
-
+file_writer.create_file = True
 
 bachelor = []
 master = []
+bachelor_failed_courses = []
+master_failed_courses = []
 
 sdu_mode = input("Are you from SDU? (y/n): ").lower() == "y"
 file_on = input("Write result to file? (y/r/n) (r for y+random filename): ").lower()
@@ -48,9 +59,26 @@ if file_on == "r":
     file_on = "y"
 file_on = file_on == "y"
 
+count_fails = True
+if sdu_mode:
+    count_fails = input("Should failed grade be counted? (y/n): ").lower() == "y"
+    if not count_fails:
+        file_writer("---Failed grads are not counted---")
+        file_writer("")
+
+split_grads = input("Do you have bachelor and master grads? (y/n):").lower() == "y"
+print("")
+
 if sdu_mode:
     if debug_mode:
-        with open("example.html") as f:
+        example_file_nr = int(input("[0] B+M_NF, [1] B+M_WF, [2] B_NF"))
+        if example_file_nr == 0:
+            example_file = "example.html"
+        if example_file_nr == 1:
+            example_file = "example_w_faild.html"
+        if example_file_nr == 2:
+            example_file = "example_b.html"
+        with open(example_file) as f:
             html = f.read()
     else:
         _ = input("Copi the html of the 'Grade Results' page on 'selvbprod.sdu.dk' to you clipboard and hit enter...")
@@ -64,9 +92,10 @@ if sdu_mode:
         bch_date = datetime.strptime("25-06-2019", "%d-%m-%Y")  #
 
     else:
-        bch_fomat = input(
-            "Enter a day there is between the last bachelor grade and (before) the first master grade (dd-mm-yyyy): ")
-        bch_date = datetime.strptime(bch_fomat, "%d-%m-%Y")
+        if split_grads:
+            bch_fomat = input(
+                "Enter a day there is between the last bachelor grade and (before) the first master grade (dd-mm-yyyy): ")
+            bch_date = datetime.strptime(bch_fomat, "%d-%m-%Y")
 
     for tr in table.find_all("tr")[1:]:
         code, name, judged, registered, grade, letter_grade, ects = [td.get_text().strip() for td in tr.find_all("td")]
@@ -82,14 +111,29 @@ if sdu_mode:
         if ects == 0:
             continue
 
+        course_faild = False
+        if isinstance(grade, int) and grade < 2 or grade != "B" and grade != "Passed" and isinstance(grade, str):
+            course_faild = True
+
         arr = [code, name, judged, registered, grade, letter_grade, ects, number_grade]
 
-        if judged <= bch_date:
-            bachelor.append(arr)
+        if not course_faild:
+            if split_grads and judged <= bch_date:
+                bachelor.append(arr)
+            else:
+                master.append(arr)
         else:
-            master.append(arr)
+            if split_grads and judged <= bch_date:
+                bachelor_failed_courses.append(arr)
+            else:
+                master_failed_courses.append(arr)
 else:
-    for level, arr in zip(["bachelor", "master"], [bachelor, master]):
+    if split_grads:
+        enu = zip(["bachelor", "master"], [bachelor, master])
+    else:
+        enu = zip(["bachelor"], [bachelor])
+
+    for level, arr in enu:
         while True:
             temp = input(
                 "{}: Input a course (or 'x' for end of {} courcses). Enter 'ECTS,grade', grade can be numeric or B for pass: ".format(
@@ -109,6 +153,33 @@ else:
 
 bachelor = np.array(bachelor)
 master = np.array(master)
+bachelor_failed_courses = np.array(bachelor_failed_courses)
+master_failed_courses = np.array(master_failed_courses)
+
+
+def make_table(codes, names, judgeds, registereds, grades, letter_grades, ects):
+    table = PrettyTable()
+
+    if (judgeds != None).all():
+        sort_idxs = np.argsort(judgeds)
+
+        codes = np.array(codes)[sort_idxs]
+        names = np.array(names)[sort_idxs]
+        judgeds = np.array(judgeds)[sort_idxs]
+        judgeds_str = dtimearr_to_str(judgeds)
+        registereds = np.array(registereds)[sort_idxs]
+        registereds_str = dtimearr_to_str(registereds)
+        grades = np.array(grades)[sort_idxs]
+        letter_grades = np.array(letter_grades)[sort_idxs]
+        ects = np.array(ects)[sort_idxs]
+    else:
+        judgeds_str = ['None'] * len(judgeds)
+        registereds_str = ['None'] * len(registereds)
+
+    field_names = ["Code", "Name of Course", "Graded", "Released", "Grade", "ECTS-Gr.", "ECTS"]
+    for i, d in enumerate([codes, names, judgeds_str, registereds_str, grades, letter_grades, ects]):
+        table.add_column(field_names[i], d)
+    return table
 
 
 def print_part_info(part_name, part_data, receiver_function=print):
@@ -146,40 +217,41 @@ def print_part_info(part_name, part_data, receiver_function=print):
     m_gpa = cal_GPA(grades[number_grads_idxs], ects[number_grads_idxs])
     receiver_function("GPA: ", np.round(m_gpa, decimals=decimals))
 
-    table = PrettyTable()
-
-
-    if (judgeds != None).all():
-        sort_idxs = np.argsort(judgeds)
-
-        codes = np.array(codes)[sort_idxs]
-        names = np.array(names)[sort_idxs]
-        judgeds = np.array(judgeds)[sort_idxs]
-        judgeds_str = dtimearr_to_str(judgeds)
-        registereds = np.array(registereds)[sort_idxs]
-        registereds_str = dtimearr_to_str(registereds)
-        grades = np.array(grades)[sort_idxs]
-        letter_grades = np.array(letter_grades)[sort_idxs]
-        ects = np.array(ects)[sort_idxs]
-    else:
-        judgeds_str = ['None'] * len(judgeds)
-        registereds_str = ['None'] * len(registereds)
-
-
-    field_names = ["Code", "Name of Course", "Graded", "Released", "Grade", "ECTS-Gr.", "ECTS"]
-    for i, d in enumerate([codes, names, judgeds_str, registereds_str, grades, letter_grades, ects]):
-
-        table.add_column(field_names[i], d)
+    table = make_table(codes, names, judgeds, registereds, grades, letter_grades, ects)
     receiver_function(table)
+
+
+def print_info(receiver_function):
+    if split_grads:
+        print_part_info("Bachelor", bachelor, receiver_function)
+        if len(bachelor_failed_courses):
+            receiver_function("")
+            print_part_info("Bachelor failed:", bachelor_failed_courses, receiver_function)
+        else:
+            receiver_function("Bachelor failed courses: 0")
+        receiver_function("")
+
+        print_part_info("Master", master, receiver_function)
+        if len(master_failed_courses):
+            receiver_function("")
+            print_part_info("Master failed:", master_failed_courses, receiver_function)
+        else:
+            receiver_function("Master failed courses: 0")
+        receiver_function("")
+
+    print_part_info("Overall", np.array(list(bachelor) + list(master)), receiver_function)
+
+    if len(bachelor_failed_courses) or len(master_failed_courses):
+        receiver_function("")
+        print_part_info("Overall failed", np.array(list(bachelor_failed_courses) + list(master_failed_courses)),
+                        receiver_function)
+    else:
+        receiver_function("Overall failed courses: 0")
     receiver_function("")
 
 
-print_part_info("Bachelor", bachelor)
-print_part_info("Master", master)
-print_part_info("Overall", np.array(list(bachelor) + list(master)))
+print_info(print)
 
 if file_on:
-    print_part_info("Bachelor", bachelor, file_writer)
-    print_part_info("Master", master, file_writer)
-    print_part_info("Overall", np.array(list(bachelor) + list(master)), file_writer)
+    print_info(file_writer)
 input("Exit...")
