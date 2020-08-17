@@ -120,42 +120,51 @@ def print_part_info(part_name, part_data, receiver_function=print):
 
     codes, names, judgeds, registereds, grades, letter_grades, ects, number_grade = part_data.T
 
-    receiver_function("Number of courses:", len(grades))
+    receiver_function("Number of courses: ", len(grades))
 
-    receiver_function("ECTS sum:", np.round(np.sum(ects), decimals=decimals))
+    receiver_function("ECTS sum: ", np.round(np.sum(ects), decimals=decimals))
 
     number_grads_idxs = np.where(number_grade == 1)[0]
     passed_npassed_idx = np.delete(np.arange(len(number_grade)), number_grads_idxs)
-    receiver_function("Grade stats (mean +- stddev / min / max): {:0.2f} +- {:0.2f} / {:0.2f} / {:0.2f}".format(
-        np.mean(grades[number_grads_idxs]),
-        np.std(grades[number_grads_idxs]),
-        np.min(grades[number_grads_idxs]),
-        np.max(grades[number_grads_idxs])))
-    receiver_function("Number/passed grade ECTS: {:0.1f}/{:0.1f}".format(np.sum(ects[number_grads_idxs]),
-                                                                         np.sum(ects[passed_npassed_idx])))
-    receiver_function("Percentage of passed/not passed courses (based on ECTS): {:0.2f}%".format(
-        np.sum(ects[passed_npassed_idx]) / np.sum(ects) * 100))
+    if len(number_grads_idxs):
+        receiver_function("Grade stats (mean +- stddev / min / max): {:0.2f} +- {:0.2f} / {:0.2f} / {:0.2f}".format(
+            np.mean(grades[number_grads_idxs]),
+            np.std(grades[number_grads_idxs]),
+            np.min(grades[number_grads_idxs]),
+            np.max(grades[number_grads_idxs])))
+    if len(passed_npassed_idx):
+        receiver_function("Number/passed grade ECTS: {:0.1f}/{:0.1f}".format(np.sum(ects[number_grads_idxs]),
+                                                                             np.sum(ects[passed_npassed_idx])))
+    if len(passed_npassed_idx):
+        receiver_function("Percentage of passed/not passed courses (based on ECTS): {:0.2f}%".format(
+            np.sum(ects[passed_npassed_idx]) / np.sum(ects) * 100))
 
     number_dict = dict(np.array(np.unique(grades[number_grads_idxs], return_counts=True)).T)
     letter_dict = dict(np.array(np.unique(grades[passed_npassed_idx], return_counts=True)).T)
-    receiver_function("Grads counts:", {**letter_dict, **number_dict})
+    receiver_function("Grads counts: ", {**letter_dict, **number_dict})
 
     m_gpa = cal_GPA(grades[number_grads_idxs], ects[number_grads_idxs])
-    receiver_function("GPA:", np.round(m_gpa, decimals=decimals))
+    receiver_function("GPA: ", np.round(m_gpa, decimals=decimals))
 
     table = PrettyTable()
 
-    sort_idxs = np.argsort(judgeds)
 
-    codes = np.array(codes)[sort_idxs]
-    names = np.array(names)[sort_idxs]
-    judgeds = np.array(judgeds)[sort_idxs]
-    judgeds_str = dtimearr_to_str(judgeds)
-    registereds = np.array(registereds)[sort_idxs]
-    registereds_str = dtimearr_to_str(registereds)
-    grades = np.array(grades)[sort_idxs]
-    letter_grades = np.array(letter_grades)[sort_idxs]
-    ects = np.array(ects)[sort_idxs]
+    if (judgeds != None).all():
+        sort_idxs = np.argsort(judgeds)
+
+        codes = np.array(codes)[sort_idxs]
+        names = np.array(names)[sort_idxs]
+        judgeds = np.array(judgeds)[sort_idxs]
+        judgeds_str = dtimearr_to_str(judgeds)
+        registereds = np.array(registereds)[sort_idxs]
+        registereds_str = dtimearr_to_str(registereds)
+        grades = np.array(grades)[sort_idxs]
+        letter_grades = np.array(letter_grades)[sort_idxs]
+        ects = np.array(ects)[sort_idxs]
+    else:
+        judgeds_str = ['None'] * len(judgeds)
+        registereds_str = ['None'] * len(registereds)
+
 
     field_names = ["Code", "Name of Course", "Graded", "Released", "Grade", "ECTS-Gr.", "ECTS"]
     for i, d in enumerate([codes, names, judgeds_str, registereds_str, grades, letter_grades, ects]):
